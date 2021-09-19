@@ -3,10 +3,11 @@ package com.aybarsacar.kidsdrawingapp
 import android.content.Context
 import android.graphics.*
 import android.util.AttributeSet
-import android.util.DisplayMetrics
 import android.util.TypedValue
 import android.view.MotionEvent
 import android.view.View
+import java.util.*
+import kotlin.collections.ArrayList
 
 /**
  * custom View class that allows the user draw on the it
@@ -16,6 +17,9 @@ class DrawingView(context: Context, attributes: AttributeSet) : View(context, at
   internal inner class CustomPath(var color: Int, var brushThickness: Float) : Path() {
 
   }
+
+  // stack that is used to implement an undo functionality
+  private val _undoPaths = ArrayList<CustomPath>()
 
   private var _drawPath: CustomPath? = null
   private var _canvasBitmap: Bitmap? = null
@@ -140,6 +144,15 @@ class DrawingView(context: Context, attributes: AttributeSet) : View(context, at
 
     // use the bitmap as the canvas
     _canvas = Canvas(_canvasBitmap!!)
+  }
+
+  public fun handleUndo() {
+    if (_paths.size > 0) {
+      _undoPaths.add(_paths.removeLast())
+
+      // redraw the path
+      invalidate()
+    }
   }
 
 }

@@ -3,10 +3,16 @@ package com.aybarsacar.kidsdrawingapp
 import android.Manifest
 import android.app.Activity
 import android.app.Dialog
+import android.content.ContentValues
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.os.Environment
 import android.provider.MediaStore
 import android.view.View
 import android.widget.ImageButton
@@ -19,6 +25,10 @@ import androidx.core.view.get
 import com.aybarsacar.kidsdrawingapp.databinding.ActivityMainBinding
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.dialog_brush_size.*
+import java.io.File
+import java.io.OutputStream
+import java.lang.Exception
+import java.util.*
 
 
 class MainActivity : AppCompatActivity() {
@@ -64,12 +74,34 @@ class MainActivity : AppCompatActivity() {
 
 
     ib_gallery.setOnClickListener {
-      requestPermission.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
+
+      if (ContextCompat.checkSelfPermission(
+          this,
+          Manifest.permission.READ_EXTERNAL_STORAGE
+        ) == PackageManager.PERMISSION_GRANTED
+      ) {
+        getImage.launch(MediaStore.Images.Media.CONTENT_TYPE)
+      } else {
+        requestPermission.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
+      }
+
     }
 
-    ib_gallery.setOnClickListener {
 
-      getImage.launch(MediaStore.Images.Media.CONTENT_TYPE)
+    ib_undo.setOnClickListener {
+      drawing_view.handleUndo()
+    }
+
+    ib_save.setOnClickListener {
+      if (ContextCompat.checkSelfPermission(
+          this,
+          Manifest.permission.WRITE_EXTERNAL_STORAGE
+        ) == PackageManager.PERMISSION_GRANTED
+      ) {
+        saveImageToGallery(getBitmapFromView(fl_drawing_view_container))
+      } else {
+        requestPermission.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+      }
     }
 
   }
@@ -119,6 +151,66 @@ class MainActivity : AppCompatActivity() {
 
     brushDialog.show()
 
+  }
+
+  /**
+   * saves the image to the user gallery
+   */
+  private fun saveImageToGallery(bitmap: Bitmap) {
+    val fos: OutputStream
+
+    try {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        val resolver = contentResolver
+        val contentValues = ContentValues()
+        contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, "Image_" + ".jpg")
+        contentValues.put(MediaStore.MediaColumns.MIME_TYPE, "image/jpg")
+        contentValues.put(
+          MediaStore.MediaColumns.RELATIVE_PATH,
+          Environment.DIRECTORY_PICTURES + File.separator + "TestFolder"
+        )
+
+        val imageUri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
+
+        fos = resolver.openOutputStream(Objects.requireNonNull(imageUri)!!)!!
+
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos)
+
+        Objects.requireNonNull<OutputStream>(fos)
+
+        Toast.makeText(this, "Image Saved", Toast.LENGTH_SHORT).show()
+      }
+    } catch (e: Exception) {
+      Toast.makeText(this, "Problam saving the image", Toast.LENGTH_SHORT).show()
+
+    }
+  }
+
+  /**
+   * converts the passed in View to a Bitmap
+   * to allow the user to store the data as an image
+   */
+  private fun getBitmapFromView(view: View): Bitmap {
+    val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
+
+    // bind the canvas on the view
+    val canvas = Canvas(bitmap)
+
+    // also get the background image if exists
+    val bgDrawable = view.background
+
+    if (bgDrawable !== null) {
+      // draw background onto the canvas
+      bgDrawable.draw(canvas)
+    } else {
+      // no bg image - draw white background
+      canvas.drawColor(Color.WHITE)
+    }
+
+    // draw whats on the canvas onto the view (our drawn paths)
+    view.draw(canvas)
+
+    return bitmap
   }
 
 
